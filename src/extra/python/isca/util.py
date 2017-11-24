@@ -120,6 +120,9 @@ def delete_all_restarts(exp, exceptions=None):
 def runinterp(exp, month, infile, outfile, var_names = '-a', p_levs = "EVEN", rm_input=False):
     """Interpolate data from sigma to pressure levels. Includes option to remove original file."""
     import subprocess
+    import os
+    from isca import GFDL_BASE
+    P = os.path.join
     pprocess = P(GFDL_BASE,'postprocessing/plevel_interpolation/scripts')
     interper = 'source '+pprocess+'/plevel.sh -i '
     inputfile = P(exp.datadir, exp.runfmt % month, infile)
