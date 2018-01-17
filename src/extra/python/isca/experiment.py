@@ -11,7 +11,7 @@ import tarfile
 # from gfdl import create_alert
 # import getpass
 
-from isca import GFDL_WORK, GFDL_DATA, _module_directory, get_env_file, EventEmitter
+from isca import GFDL_WORK, GFDL_DATA, GFDL_BASE, _module_directory, get_env_file, EventEmitter
 from isca.diagtable import DiagTable
 from isca.loghandler import Logger, clean_log_debug
 from isca.helpers import destructive, useworkdir, mkdir
@@ -101,7 +101,7 @@ class Experiment(Logger, EventEmitter):
     @destructive
     @useworkdir
     def clear_rundir(self):
-        sh.cd(self.workdir)
+        #sh.cd(self.workdir)
         try:
             sh.rm(['-r', self.rundir])
         except sh.ErrorReturnCode:
@@ -142,11 +142,12 @@ class Experiment(Logger, EventEmitter):
     def write_diag_table(self, outdir):
         outfile = P(outdir, 'diag_table')
         self.log.info('Writing diag_table to %r' % outfile)
-        if len(self.diag_table.files):
-            template = self.templates.get_template('diag_table')
-            calendar = not self.namelist['main_nml']['calendar'].lower().startswith('no_calendar')
-            vars = {'calendar': calendar, 'outputfiles': self.diag_table.files.values()}
-            template.stream(**vars).dump(outfile)
+        if self.diag_table.is_valid():
+            if self.diag_table.calendar is None:
+                # diagnose the calendar from the namelist
+                cal = self.get_calendar()
+                self.diag_table.calendar = cal
+            self.diag_table.write(outfile)
         else:
             self.log.error("No output files defined in the DiagTable. Stopping.")
             raise ValueError()
@@ -169,10 +170,17 @@ class Experiment(Logger, EventEmitter):
             sh.rm(resfile)
             self.log.info('Deleted restart file %s' % resfile)
 
+    def get_calendar(self):
+        """Get the value of 'main_nml/calendar.
+        Returns a string name of calendar, or None if not set in namelist.'"""
+        if 'main_nml' in self.namelist:
+            return self.namelist['main_nml'].get('calendar')
+        else:
+            return None
 
     @destructive
     @useworkdir
-    def run(self, i, restart_file=None, use_restart=True, num_cores=8, overwrite_data=False, save_run=False, run_idb=False, nice_score=0):
+    def run(self, i, restart_file=None, use_restart=True, multi_node=False, num_cores=8, overwrite_data=False, save_run=False, run_idb=False, nice_score=0):
         """Run the model.
             `num_cores`: Number of mpi cores to distribute over.
             `restart_file` (optional): A path to a valid restart archive.  If None and `use_restart=True`,
@@ -208,13 +216,18 @@ class Experiment(Logger, EventEmitter):
         for filename in self.inputfiles:
             sh.cp([filename, P(indir, os.path.split(filename)[1])])
 
+        mpirun_opts= ''
+
+        if multi_node:
+            mpirun_opts += ' -bootstrap pbsdsh -f $PBS_NODEFILE'
+
         if use_restart:
             if not restart_file:
                 # get the restart from previous iteration
                 restart_file = self.get_restart_file(i - 1)
             if not os.path.isfile(restart_file):
                 self.log.error('Restart file not found, expecting file %r' % restart_file)
-                exit(2)
+                raise IOError('Restart file not found, expecting file %r' % restart_file)
             else:
                 self.log.info('Using restart file %r' % restart_file)
 
@@ -228,6 +241,7 @@ class Experiment(Logger, EventEmitter):
             'execdir': self.codebase.builddir,
             'executable': self.codebase.executable_name,
             'env_source': self.env_source,
+            'mpirun_opts': mpirun_opts,
             'num_cores': num_cores,
             'run_idb': run_idb,
             'nice_score': nice_score
@@ -248,11 +262,13 @@ class Experiment(Logger, EventEmitter):
         try:
             #for line in sh.bash(P(self.rundir, 'run.sh'), _iter=True, _err_to_out=True):
             proc = sh.bash(P(self.rundir, 'run.sh'), _bg=True, _out=_outhandler, _err_to_out=True)
+            self.log.info('process running as {}'.format(proc.process.pid))
             proc.wait()
             completed = True
         except KeyboardInterrupt as e:
             self.log.error("Manual interrupt, killing process.")
-            proc.process.kill()
+            proc.process.terminate()
+            proc.wait()
             #log.info("Cleaning run directory.")
             #self.clear_rundir()
             raise e
@@ -269,11 +285,15 @@ class Experiment(Logger, EventEmitter):
 
         if num_cores > 1:
             # use postprocessing tool to combine the output from several cores
-            combinetool = sh.Command(P(self.codebase.builddir, 'mppnccombine.x'))
+            codebase_combine_script = P(self.codebase.builddir, 'mppnccombine_run.sh')
+            if not os.path.exists(codebase_combine_script):
+                self.log.warning('combine script does not exist in the commit you are running Isca from.  Falling back to using $GFDL_BASE mppnccombine_run.sh script')
+                sh.ln('-s',  P(GFDL_BASE, 'postprocessing', 'mppnccombine_run.sh'), codebase_combine_script)
+            combinetool = sh.Command(codebase_combine_script)
             for file in self.diag_table.files:
                 netcdf_file = '%s.nc' % file
                 filebase = P(self.rundir, netcdf_file)
-                combinetool(filebase)
+                combinetool(self.codebase.builddir, filebase)
                 # copy the combined netcdf file into the data archive directory
                 sh.cp(filebase, P(outdir, netcdf_file))
                 # remove all netcdf fragments from the run directory
