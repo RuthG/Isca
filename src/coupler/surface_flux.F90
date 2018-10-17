@@ -256,6 +256,7 @@ logical :: old_dtaudv            = .false.
 logical :: use_mixing_ratio      = .false.
 real    :: gust_const            =  1.0
 real    :: gust_min              =  0.0
+real    :: w_atm_const           =  0.0
 logical :: ncar_ocean_flux       = .false.
 logical :: ncar_ocean_flux_orig  = .false. ! for backwards compatibility
 logical :: raoult_sat_vap        = .false.
@@ -273,6 +274,7 @@ namelist /surface_flux_nml/ no_neg_q,             &
                             alt_gustiness,        &
                             gust_const,           &
                             gust_min,             &
+							w_atm_const,          &
                             old_dtaudv,           &
                             use_mixing_ratio,     &
                             ncar_ocean_flux,      &
@@ -505,7 +507,7 @@ subroutine surface_flux_1d (                                           &
      cd_m = cd_m*(log(z_atm/rough_mom+1)/log(z_atm/rough_scale+1))**2
      ! surface layer drag coefficients
      drag_t = cd_t * w_atm
-     drag_q = cd_q * w_atm
+     !drag_q = cd_q * w_atm    ! RG transfer to if loop below to allow w_atm to be fixed
      drag_m = cd_m * w_atm
 
      ! density
@@ -518,8 +520,22 @@ subroutine surface_flux_1d (                                           &
      dhdt_atm  = -rho_drag*p_ratio           ! d(sensible heat flux)/d(atmos temperature)
 
      ! evaporation
-     rho_drag  =  drag_q * rho
+     !rho_drag  =  drag_q * rho  ! RG transfer to if loop below to allow w_atm to be fixed
   end where  
+  
+  ! RG Add option to fix w_atm in the evaporation equation. 
+  ! NB cd_q currently still depends on w_atm via Richardson no.
+  if (w_atm_const > 0.0) then
+	  where (avail)
+		  drag_q = cd_q * w_atm_const
+		  rho_drag = drag_q_rho
+	  end where
+  else
+	  where (avail)
+		  drag_q = cd_q * w_atm
+		  rho_drag  =  drag_q * rho
+	  end where
+  end if
 
 !RG Add bucket - if bucket is on evaluate fluxes based on moisture availability.
 !RG Note changes to avail statements to allow bucket to be switched on or off	  
