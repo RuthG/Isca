@@ -248,6 +248,10 @@ integer ::           &
      id_bucket_depth_conv, &   ! bucket depth variation induced by convection  - RG Add bucket
      id_bucket_depth_cond, &   ! bucket depth variation induced by condensation  - RG Add bucket
      id_bucket_depth_lh,   &   ! bucket depth variation induced by LH  - RG Add bucket
+     id_w_atm,   &   ! wind speed  - RG Add lh flux breakdown
+     id_drag_q,   &   ! moisture drag coefficient  - RG Add lh flux breakdown
+     id_q_atm,   &   ! lowest level specific humidity  - RG Add lh flux breakdown
+     id_q_surf,   &   ! surface humidity - RG Add lh flux breakdown
      id_rh,          & 	 ! Relative humidity
      id_diss_heat_ray,&  ! Heat dissipated by rayleigh bottom drag if gp_surface=.True.
      id_z_tg,        &   ! Relative humidity
@@ -599,6 +603,17 @@ id_cape = register_diag_field(mod_name, 'cape',          &
 id_cin = register_diag_field(mod_name, 'cin',          &
      axes(1:2), Time, 'Convective Inhibition','J/kg')
 
+if(.not.gp_surface) then 
+   id_w_atm = register_diag_field(mod_name, 'wind_speed',          &     ! RG Add lh flux breakdown
+    	axes(1:2), Time, 'Lowest level wind speed','m/s')
+   id_drag_q = register_diag_field(mod_name, 'drag_q',          &      ! RG Add lh flux breakdown
+	    axes(1:2), Time, 'Moisture drag coefficient','none')
+   id_q_atm = register_diag_field(mod_name, 'q_atm',          &     ! RG Add lh flux breakdown
+ 	    axes(1:2), Time, 'Lowest level specific humidity','kg/kg')
+   id_q_surf = register_diag_field(mod_name, 'q_surf',          &     ! RG Add lh flux breakdown
+	    axes(1:2), Time, 'Surface specific humidity','kg/kg')
+endif
+	
 if(bucket) then
   id_bucket_depth = register_diag_field(mod_name, 'bucket_depth',            &         ! RG Add bucket
        axes(1:2), Time, 'Depth of surface reservoir', 'm')
@@ -965,6 +980,11 @@ call surface_flux(                                                          &
                                     land(:,:),                              &
                                .not.land(:,:),                              &
                                    avail(:,:)  )
+
+if(id_w_atm > 0) used = send_data(id_w_atm, w_atm, Time)    ! RG Add lh flux breakdown
+if(id_drag_q > 0) used = send_data(id_drag_q, drag_q, Time)    ! RG Add lh flux breakdown
+if(id_q_atm > 0) used = send_data(id_q_atm, grid_tracers(:,:,num_levels,previous,nsphum), Time)    ! RG Add lh flux breakdown
+if(id_q_surf > 0) used = send_data(id_q_surf, q_surf, Time)    ! RG Add lh flux breakdown
 endif
 
 ! Now complete the radiation calculation by computing the upward and net fluxes.
