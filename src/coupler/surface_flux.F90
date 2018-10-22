@@ -528,7 +528,7 @@ subroutine surface_flux_1d (                                           &
   if (w_atm_const > 0.0) then
 	  where (avail)
 		  drag_q = cd_q * w_atm_const
-		  rho_drag = drag_q_rho
+		  rho_drag = drag_q * rho
 	  end where
   else
 	  where (avail)
