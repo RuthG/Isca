@@ -345,7 +345,7 @@ subroutine surface_flux_1d (                                           &
      u_surf,    v_surf,                                                &
      rough_mom, rough_heat, rough_moist, rough_scale, gust,            &
      flux_t, flux_q, flux_r, flux_u, flux_v,                           &
-     cd_m,      cd_t,       cd_q,                                      &
+     cd_m,      cd_t,       cd_q,       rho,                           & !RG add rho as output
      w_atm,     u_star,     b_star,     q_star,                        &
      dhdt_surf, dedt_surf,  dedq_surf,  drdt_surf,                     &
      dhdt_atm,  dedq_atm,   dtaudu_atm, dtaudv_atm,                    &
@@ -366,7 +366,7 @@ subroutine surface_flux_1d (                                           &
        dhdt_surf, dedt_surf,  dedq_surf, drdt_surf,          &
        dhdt_atm,  dedq_atm,   dtaudu_atm,dtaudv_atm,         &
        w_atm,     u_star,     b_star,    q_star,             &
-       cd_m,      cd_t,       cd_q
+       cd_m,      cd_t,       cd_q,    rho
   real, intent(inout), dimension(:) :: q_surf
   real, intent(inout), dimension(:) :: bucket_depth                              !RG Add bucket
   real, intent(inout), dimension(:) :: depth_change_lh_1d                        !RG Add bucket
@@ -383,7 +383,7 @@ subroutine surface_flux_1d (                                           &
        thv_atm,  th_atm,   tv_atm,    thv_surf,            &
        e_sat,    e_sat1,   q_sat,     q_sat1,    p_ratio,  &
        t_surf0,  t_surf1,  u_dif,     v_dif,               &
-       rho_drag, drag_t,    drag_m,   drag_q,    rho,      &
+       rho_drag, drag_t,    drag_m,   drag_q,              &
        q_atm,    q_surf0,  dw_atmdu,  dw_atmdv,  w_gust
 
   integer :: i, nbad
@@ -695,7 +695,7 @@ subroutine surface_flux_0d (                                                 &
        dhdt_surf, dedt_surf,  dedq_surf, drdt_surf,          &
        dhdt_atm,  dedq_atm,   dtaudu_atm,dtaudv_atm,         &
        w_atm,     u_star,     b_star,    q_star,             &
-       cd_m,      cd_t,       cd_q
+       cd_m,      cd_t,       cd_q,    rho
   real, dimension(1) :: q_surf
   real, dimension(1) :: bucket_depth                                 !RG Add bucket 
   real, dimension(1) :: depth_change_lh_1d                           !RG Add bucket
@@ -733,7 +733,7 @@ subroutine surface_flux_0d (                                                 &
        u_surf,    v_surf,                                                &
        rough_mom, rough_heat, rough_moist, rough_scale, gust,            &
        flux_t, flux_q, flux_r, flux_u, flux_v,                           &
-       cd_m,      cd_t,       cd_q,                                      &
+       cd_m,      cd_t,       cd_q,    rho,                              &
        w_atm,     u_star,     b_star,     q_star,                        &
        dhdt_surf, dedt_surf,  dedq_surf,  drdt_surf,                     &
        dhdt_atm,  dedq_atm,   dtaudu_atm, dtaudv_atm,                    &
@@ -771,7 +771,7 @@ subroutine surface_flux_2d (                                           &
      u_surf,    v_surf,                                                &
      rough_mom, rough_heat, rough_moist, rough_scale, gust,            &
      flux_t,    flux_q,     flux_r,    flux_u,    flux_v,              &
-     cd_m,      cd_t,       cd_q,                                      &
+     cd_m,      cd_t,       cd_q,  rho,                                &
      w_atm,     u_star,     b_star,     q_star,                        &
      dhdt_surf, dedt_surf,  dedq_surf,  drdt_surf,                     &
      dhdt_atm,  dedq_atm,   dtaudu_atm, dtaudv_atm,                    &
@@ -789,7 +789,7 @@ subroutine surface_flux_2d (                                           &
        dhdt_surf, dedt_surf,  dedq_surf, drdt_surf,          &
        dhdt_atm,  dedq_atm,   dtaudu_atm,dtaudv_atm,         &
        w_atm,     u_star,     b_star,    q_star,             &
-       cd_m,      cd_t,       cd_q
+       cd_m,      cd_t,       cd_q,  rho
   real, intent(inout), dimension(:,:) :: q_surf
   logical, intent(in) :: bucket !RG Add bucket
   real, intent(inout), dimension(:,:) :: bucket_depth ! RG Add bucket
@@ -810,7 +810,7 @@ subroutine surface_flux_2d (                                           &
           u_surf(:,j),    v_surf(:,j),                                                                    &
           rough_mom(:,j), rough_heat(:,j), rough_moist(:,j), rough_scale(:,j), gust(:,j),                 &
           flux_t(:,j),    flux_q(:,j),     flux_r(:,j),    flux_u(:,j),    flux_v(:,j),                   &
-          cd_m(:,j),      cd_t(:,j),       cd_q(:,j),                                                     &
+          cd_m(:,j),      cd_t(:,j),       cd_q(:,j),   rho(:,j),                                         &
           w_atm(:,j),     u_star(:,j),     b_star(:,j),     q_star(:,j),                                  &
           dhdt_surf(:,j), dedt_surf(:,j),  dedq_surf(:,j),  drdt_surf(:,j),                               &
           dhdt_atm(:,j),  dedq_atm(:,j),   dtaudu_atm(:,j), dtaudv_atm(:,j),                              &

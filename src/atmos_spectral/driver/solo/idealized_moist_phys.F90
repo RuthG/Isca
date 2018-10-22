@@ -171,6 +171,7 @@ real, allocatable, dimension(:,:)   ::                                        &
      drag_m,               &   ! momentum drag coefficient
      drag_t,               &   ! heat drag coefficient
      drag_q,               &   ! moisture drag coefficient
+     rho,                  &   ! air density at surface
      w_atm,                &   ! wind speed
      ustar,                &   ! friction velocity
      bstar,                &   ! buoyancy scale
@@ -250,6 +251,7 @@ integer ::           &
      id_bucket_depth_lh,   &   ! bucket depth variation induced by LH  - RG Add bucket
      id_w_atm,   &   ! wind speed  - RG Add lh flux breakdown
      id_drag_q,   &   ! moisture drag coefficient  - RG Add lh flux breakdown
+     id_rho,   &   ! density at surface  - RG Add lh flux breakdown
      id_q_atm,   &   ! lowest level specific humidity  - RG Add lh flux breakdown
      id_q_surf,   &   ! surface humidity - RG Add lh flux breakdown
      id_rh,          & 	 ! Relative humidity
@@ -426,6 +428,7 @@ allocate(flux_v      (is:ie, js:je))
 allocate(drag_m      (is:ie, js:je))
 allocate(drag_t      (is:ie, js:je))
 allocate(drag_q      (is:ie, js:je))
+allocate(rho         (is:ie, js:je))
 allocate(w_atm       (is:ie, js:je))
 allocate(ustar       (is:ie, js:je))
 allocate(bstar       (is:ie, js:je))
@@ -608,6 +611,8 @@ if(.not.gp_surface) then
     	axes(1:2), Time, 'Lowest level wind speed','m/s')
    id_drag_q = register_diag_field(mod_name, 'drag_q',          &      ! RG Add lh flux breakdown
 	    axes(1:2), Time, 'Moisture drag coefficient','none')
+   id_rho = register_diag_field(mod_name, 'rho',          &      ! RG Add lh flux breakdown
+	    axes(1:2), Time, 'Air density at lowest level','kg/m/m/m')
    id_q_atm = register_diag_field(mod_name, 'q_atm',          &     ! RG Add lh flux breakdown
  	    axes(1:2), Time, 'Lowest level specific humidity','kg/kg')
    id_q_surf = register_diag_field(mod_name, 'q_surf',          &     ! RG Add lh flux breakdown
@@ -964,6 +969,7 @@ call surface_flux(                                                          &
                                   drag_m(:,:),                              & ! is intent(out)
                                   drag_t(:,:),                              & ! is intent(out)
                                   drag_q(:,:),                              & ! is intent(out)
+								  rho(:,:),                                 &
                                    w_atm(:,:),                              & ! is intent(out)
                                    ustar(:,:),                              & ! is intent(out)
                                    bstar(:,:),                              & ! is intent(out)
@@ -983,6 +989,7 @@ call surface_flux(                                                          &
 
 if(id_w_atm > 0) used = send_data(id_w_atm, w_atm, Time)    ! RG Add lh flux breakdown
 if(id_drag_q > 0) used = send_data(id_drag_q, drag_q, Time)    ! RG Add lh flux breakdown
+if(id_rho > 0) used = send_data(id_rho, rho, Time)    ! RG Add lh flux breakdown
 if(id_q_atm > 0) used = send_data(id_q_atm, grid_tracers(:,:,num_levels,previous,nsphum), Time)    ! RG Add lh flux breakdown
 if(id_q_surf > 0) used = send_data(id_q_surf, q_surf, Time)    ! RG Add lh flux breakdown
 endif
