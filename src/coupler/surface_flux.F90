@@ -506,34 +506,47 @@ subroutine surface_flux_1d (                                           &
      ! scale momentum drag coefficient on orographic roughness
      cd_m = cd_m*(log(z_atm/rough_mom+1)/log(z_atm/rough_scale+1))**2
      ! surface layer drag coefficients
-     drag_t = cd_t * w_atm
+     !drag_t = cd_t * w_atm    ! RG transfer to if loop below to allow w_atm to be fixed
      !drag_q = cd_q * w_atm    ! RG transfer to if loop below to allow w_atm to be fixed
      drag_m = cd_m * w_atm
 
      ! density
      rho = p_atm / (rdgas * tv_atm)
 
-     ! sensible heat flux
-     rho_drag = cp_air * drag_t * rho
-     flux_t = rho_drag * (t_surf0 - th_atm)  ! flux of sensible heat (W/m**2)
-     dhdt_surf =  rho_drag                   ! d(sensible heat flux)/d(surface temperature)
-     dhdt_atm  = -rho_drag*p_ratio           ! d(sensible heat flux)/d(atmos temperature)
+     ! sensible heat flux    ! RG transfer to if loop below to allow w_atm to be fixed
+     !rho_drag = cp_air * drag_t * rho
+     !flux_t = rho_drag * (t_surf0 - th_atm)  ! flux of sensible heat (W/m**2)
+     !dhdt_surf =  rho_drag                   ! d(sensible heat flux)/d(surface temperature)
+     !dhdt_atm  = -rho_drag*p_ratio           ! d(sensible heat flux)/d(atmos temperature)
 
      ! evaporation
      !rho_drag  =  drag_q * rho  ! RG transfer to if loop below to allow w_atm to be fixed
   end where  
   
-  ! RG Add option to fix w_atm in the evaporation equation. 
-  ! NB cd_q currently still depends on w_atm via Richardson no.
+  ! RG Add option to fix w_atm in the evaporation and sensible heat equations. 
   if (w_atm_const > 0.0) then
 	  where (avail)
 		  drag_q = cd_q * w_atm_const
 		  rho_drag = drag_q * rho
+		  
+	      ! sensible heat flux
+	      drag_t = cd_t * w_atm_const
+	      rho_drag = cp_air * drag_t * rho
+	      flux_t = rho_drag * (t_surf0 - th_atm)  ! flux of sensible heat (W/m**2)
+	      dhdt_surf =  rho_drag                   ! d(sensible heat flux)/d(surface temperature)
+	      dhdt_atm  = -rho_drag*p_ratio           ! d(sensible heat flux)/d(atmos temperature)
 	  end where
   else
 	  where (avail)
 		  drag_q = cd_q * w_atm
 		  rho_drag  =  drag_q * rho
+		  
+	      ! sensible heat flux
+	      drag_t = cd_t * w_atm
+	      rho_drag = cp_air * drag_t * rho
+	      flux_t = rho_drag * (t_surf0 - th_atm)  ! flux of sensible heat (W/m**2)
+	      dhdt_surf =  rho_drag                   ! d(sensible heat flux)/d(surface temperature)
+	      dhdt_atm  = -rho_drag*p_ratio           ! d(sensible heat flux)/d(atmos temperature)
 	  end where
   end if
 
