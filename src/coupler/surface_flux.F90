@@ -526,27 +526,28 @@ subroutine surface_flux_1d (                                           &
   ! RG Add option to fix w_atm in the evaporation and sensible heat equations. 
   if (w_atm_const > 0.0) then
 	  where (avail)
-		  drag_q = cd_q * w_atm_const
-		  rho_drag = drag_q * rho
-		  
 	      ! sensible heat flux
 	      drag_t = cd_t * w_atm_const
 	      rho_drag = cp_air * drag_t * rho
 	      flux_t = rho_drag * (t_surf0 - th_atm)  ! flux of sensible heat (W/m**2)
 	      dhdt_surf =  rho_drag                   ! d(sensible heat flux)/d(surface temperature)
 	      dhdt_atm  = -rho_drag*p_ratio           ! d(sensible heat flux)/d(atmos temperature)
+		  
+		  drag_q = cd_q * w_atm_const
+		  rho_drag = drag_q * rho
+		  
 	  end where
   else
 	  where (avail)
-		  drag_q = cd_q * w_atm
-		  rho_drag  =  drag_q * rho
-		  
 	      ! sensible heat flux
 	      drag_t = cd_t * w_atm
 	      rho_drag = cp_air * drag_t * rho
 	      flux_t = rho_drag * (t_surf0 - th_atm)  ! flux of sensible heat (W/m**2)
 	      dhdt_surf =  rho_drag                   ! d(sensible heat flux)/d(surface temperature)
 	      dhdt_atm  = -rho_drag*p_ratio           ! d(sensible heat flux)/d(atmos temperature)
+		  
+		  drag_q = cd_q * w_atm
+		  rho_drag  =  drag_q * rho
 	  end where
   end if
 
@@ -612,11 +613,22 @@ subroutine surface_flux_1d (                                           &
 
 !RG end Add bucket changes
 
+
+! RG Add option to fix w_atm in the evaporation and sensible heat equations. 
+if (w_atm_const > 0.0) then
+  where (avail)
+      q_surf = q_atm + flux_q / (rho*cd_q*w_atm_const)   ! surface specific humidity
+  end where
+else
+  where (avail)
+      q_surf = q_atm + flux_q / (rho*cd_q*w_atm)   ! surface specific humidity
+  end where
+end if
+
+
   where (avail)
 
      q_star = flux_q / (u_star * rho)             ! moisture scale
-     ! ask Chris and Steve K if we still want to keep this for diagnostics
-     q_surf = q_atm + flux_q / (rho*cd_q*w_atm)   ! surface specific humidity
 
      ! upward long wave radiation
      flux_r    =   stefan*t_surf**4               ! (W/m**2)
