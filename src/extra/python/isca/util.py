@@ -131,7 +131,6 @@ def delete_all_restarts(exp, exceptions=None):
 
 
 
-
 def interpolate_output(infile, outfile, all_fields=True, var_names=[], p_levs = "input"):
     """Interpolate data from sigma to pressure levels. Includes option to remove original file.
 
