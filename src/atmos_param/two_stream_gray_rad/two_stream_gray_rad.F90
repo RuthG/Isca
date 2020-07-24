@@ -506,6 +506,69 @@ case(B_GEEN)
   do k = 1, n
      sw_down(:,:,k+1)   = sw_down(:,:,k) * sw_dtrans(:,:,k)
   end do
+  
+  if ( ozone_in_SW .eq. 1 ) then
+  ! Lacis and Hansen (1974) absorption by ozone, with Forster and Shine (1997) correction.
+  ! Computes broadband absorption, as fraction of total solar flux at TOA.
+  ! However, O3 band does not significantly overlap with water vapour SW absorption,
+  !so can safely add O3 heating on top of water vapour heating without changing the radiation seen by the water vapour optical depths above.
+  
+  call interpolator( o3_interp, Time_diag, p_half, o3, trim(ozone_variable_name))
+  
+  if (input_o3_file_is_mmr) then
+      o3 = o3 * (1000. * gas_constant / rdgas ) / wtmozone !If input is MMR convert to VMR
+  end if
+  
+  ! o3 = Ozone VMR on pressure levels.  Need to convert to cm of ozone
+  ! to use with Lacis and Hansen scheme.  Make ozone_column array containing
+  ! ozone amount in cm from TOA down to top of level k
+  ! ozone_column(:,:,1:n+1) = Column O3 in cm above level 1 <= k <= n+1
+    ozone_column(:,:,1) = 0.
+    do k = 1, n
+      ozone_column(:,:,k+1) = ozone_column(:,:,k) + (                            &
+                            ( 287.1 / (1.38065e-23 * grav) )                     &
+                            * ( p_half(:,:,k+1) - p_half(:,:,k) )                &
+                            * o3(:,:,k) / 2.687e+23)
+    end do
+  
+
+
+  ! Parameterization for fraction of total flux absorbed from LH74:
+    do k = 1, n+1
+   	 ! Apply magnification factor to ozone profile:
+   	 ozone_mag(:,:,k) = ozone_column(:,:,k) * 35.  
+   	                   / ( ( 1224.*(coszen**2) + 1. )**0.5 )
+  
+      abs_vis_LH(:,:,k) = ( 0.02118 * ozone_mag(:,:,k) ) / (                     &
+                            1. + 0.042 * ozone_mag(:,:,k)                        &
+                               + 0.000323 * ( ( ozone_mag(:,:,k) )**2. )         &
+                                                           )
+    ! FS97 correction:
+      abs_vis_LH_FS(:,:,k) = ( -0.002894 * ozone_mag(:,:,k) + 1.0663 )           &
+                           * abs_vis_LH(:,:,k)
+
+      abs_uv_LH(:,:,k) = ( 1.082 * ozone_mag(:,:,k) ) / (                        &
+                           ( 1. + 138.6 * ozone_mag(:,:,k) )**0.805              &
+                                                        )                        &
+                       + ( 0.0658 * ozone_mag(:,:,k) ) / (                       &
+                           1. + ( 103.6 * ozone_mag(:,:,k) )**3.                 &
+                                                         )
+    ! FS97 correction:
+      abs_uv_LH_FS(:,:,k) = ( -0.01632 * ozone_mag(:,:,k) + 1.08964 )            &
+                          * abs_uv_LH(:,:,k)
+
+    ! Total downward SW flux absorbed above level k due to ozone heating.
+    ! N.B. Flux absorbed in level k = ozone_dF0_down(:,:,k+1) - ozone_dF0_down(:,:,k)
+      ozone_dF0_down(:,:,k) = insolation(:,:) * ( abs_vis_LH_FS(:,:,k)                &
+                                             + abs_uv_LH_FS(:,:,k)               &
+                                           )
+
+    ! Subtract off ozone absorption from total SW flux:
+      sw_down(:,:,k) = sw_down(:,:,k) - ozone_dF0_down(:,:,k)
+    end do !LH parametrisation
+  endif ! ozone_in_SW
+  
+  
 
 case(B_FRIERSON, B_BYRNE)
   ! Default: Frierson handling of SW radiation
@@ -815,14 +878,14 @@ deallocate (b, tdt_rad, tdt_solar)
 deallocate (lw_up, lw_down, lw_flux, sw_up, sw_down, sw_flux, rad_flux)
 deallocate (b_surf, olr, net_lw_surf, toa_sw_in, lw_tau_0, sw_tau_0)
 deallocate (lw_dtrans, lw_tau, sw_tau)
-deallocate (insolation, p2) !s albedo
+deallocate (insolation, p2, o3)
 
 ! deallocate RG variables
 if (lw_scheme.eq.B_GEEN) then
   deallocate (b_win, lw_dtrans_win, lw_up_win, lw_down_win, lw_del_tau, lw_del_tau_win)
 endif
 if (sw_scheme.eq.B_GEEN) then
-  deallocate (sw_dtrans, sw_wv, del_sol_tau, sw_tau_k)
+  deallocate (sw_dtrans, sw_wv, del_sol_tau, sw_tau_k, ozone_column, ozone_mag, ozone_dF0_down, abs_uv_LH, abs_vis_LH, abs_uv_LH_FS, abs_vis_LH_FS)
 endif
 if (lw_scheme.eq.B_BYRNE) then
   deallocate (lw_del_tau)
