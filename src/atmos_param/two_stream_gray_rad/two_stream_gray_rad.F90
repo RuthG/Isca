@@ -102,7 +102,7 @@ real    :: ir_tau_wv1      = 23.8
 real    :: ir_tau_wv2      = 254.0
 real    :: window          = 0.3732
 real    :: carbon_conc     = 360.0
-! switches for Lacis and Hansen (1974) ozone scheme
+! switches and constants for Lacis and Hansen (1974) ozone scheme
 real    :: ozone_in_SW     = .false.
 real    :: two_stream_SW   = .false.
 logical :: do_read_ozone=.false. ! ozone must be read in if used
@@ -110,7 +110,9 @@ type(interpolate_type),save :: o3_interp  ! use external file for o3
 character(len=256) :: ozone_file='ozone' ! name of ozone file 
 character(len=256) :: ozone_variable_name='ozone' ! name of ozone variable in file 
 logical :: input_o3_file_is_mmr=.true. ! Does the ozone input file contain values as a mass mixing ratio (set to true) or a volume mixing ratio (set to false)?
-
+real, allocatable, dimension(:,:,:) :: ozone_column, ozone_mag, ozone_dF0_down
+real, allocatable, dimension(:,:,:) :: abs_uv_LH, abs_uv_LH_FS
+real, allocatable, dimension(:,:,:) :: abs_vis_LH, abs_vis_LH_FS
 
 
 ! constants for SCHNEIDER_LIU radiation version
