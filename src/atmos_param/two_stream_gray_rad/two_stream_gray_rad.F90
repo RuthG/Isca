@@ -775,7 +775,6 @@ real, intent(in) , dimension(:,:)   :: t_surf
 real, intent(in) , dimension(:,:,:) :: t, p_half
 real, intent(inout), dimension(:,:,:) :: tdt
 
-
 integer :: i, j, k, n
 
 logical :: used
@@ -832,49 +831,6 @@ case(B_GEEN)
   
 if ( two_stream_SW .and. ozone_in_SW) then
 	
-	! insolation at TOA
-	if (do_seasonal) then
-	  ! Seasonal Cycle: Use astronomical parameters to calculate insolation
-	  call get_time(Time_diag, seconds, days)
-	  call get_time(length_of_year(), year_in_s)
-	  r_seconds = real(seconds)
-	  day_in_s = length_of_day()
-	  frac_of_day = r_seconds / day_in_s
-
-	  if(solday .ge. 0) then
-	      r_solday=real(solday)
-	      frac_of_year = (r_solday*day_in_s) / year_in_s
-	  else
-	      r_days=real(days)
-	      r_total_seconds=r_seconds+(r_days*day_in_s)
-	      frac_of_year = r_total_seconds / year_in_s
-	  endif
-
-	  gmt = abs(mod(frac_of_day, 1.0)) * 2.0 * pi
-
-	  time_since_ae = modulo(frac_of_year-equinox_day, 1.0) * 2.0 * pi
-
-	  if(use_time_average_coszen) then
-
-	     r_dt_rad_avg=real(dt_rad_avg)
-	     dt_rad_radians = (r_dt_rad_avg/day_in_s)*2.0*pi
-
-	     call diurnal_solar(lat, lon, gmt, time_since_ae, coszen, fracsun, rrsun, dt_rad_radians)
-	  else
-	     call diurnal_solar(lat, lon, gmt, time_since_ae, coszen, fracsun, rrsun)
-	  end if
-
-	     insolation = solar_constant * coszen
-
-	else if (sw_scheme==B_SCHNEIDER_LIU) then
-	  insolation = (solar_constant/pi)*cos(lat)
-	else
-	  ! Default: Averaged Earth insolation at all longitudes
-	  p2          = (1. - 3.*sin(lat)**2)/4.
-	  insolation  = 0.25 * solar_constant * (1.0 + del_sol * p2 + del_sw * sin(lat))
-	  coszen = cos(lat) ! Approximate coszen by cos(lat) in this case for LH74 SW
-	end if
-	
   ! Lacis and Hansen scheme for absorption of upward SW flux by O3:  
     r_bar(:,:) = ( 0.291 / ( 1. + 0.816*coszen ) ) + (                          &
                    ( 1. - ( 0.291 / ( 1. + 0.816*coszen ) ) )                   &
@@ -884,7 +840,7 @@ if ( two_stream_SW .and. ozone_in_SW) then
     do k = n+1,1,-1
 		! Apply magnification factor
 	  ozone_mag_up(:,:,k) = ozone_column(:,:,n+1) * 35. / (                      &
-                              ( 1224.*(cDecl**2.) + 1 )**0.5 )                     &
+                              ( 1224.*(coszen**2.) + 1 )**0.5 )                     &
                             + 1.9 * ( ozone_column(:,:,n+1)                        &
                                       - ozone_column(:,:,k)                        &
                                     )
