@@ -102,6 +102,12 @@ real    :: ir_tau_wv1      = 23.8
 real    :: ir_tau_wv2      = 254.0
 real    :: window          = 0.3732
 real    :: carbon_conc     = 360.0
+! switches for Lacis and Hansen (1974) ozone scheme
+real    :: ozone_in_SW     = .false.
+real    :: two_stream_SW   = .false.
+logical :: do_read_ozone=.false. ! ozone must be read in if used
+character(len=256) :: ozone_file='ozone' ! name of ozone file 
+logical :: input_o3_file_is_mmr=.true. ! Does the ozone input file contain values as a mass mixing ratio (set to true) or a volume mixing ratio (set to false)?
 
 ! constants for SCHNEIDER_LIU radiation version
 real    :: single_albedo      = 0.8
@@ -148,7 +154,8 @@ namelist/two_stream_gray_rad_nml/ solar_constant, del_sol, &
 		   window, carbon_conc, rad_scheme, &
            do_read_co2, co2_file, co2_variable_name, solday, equinox_day, bog_a, bog_b, bog_mu, &
            use_time_average_coszen, dt_rad_avg,&
-           diabatic_acce !Schneider Liu values
+           diabatic_acce, ozone_in_SW, two_stream_SW,  
+		   do_read_ozone, ozone_file, input_o3_file_is_mmr
 
 !==================================================================================
 !-------------------- diagnostics fields -------------------------------
