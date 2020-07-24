@@ -306,6 +306,16 @@ case(B_GEEN)
   allocate (del_sol_tau      (ie-is+1, je-js+1))
   allocate (sw_tau_k         (ie-is+1, je-js+1))
   
+  if ( ozone_in_SW .eq. 1 ) then
+    allocate (ozone_column   (im, jm, n+1))
+    allocate (ozone_mag      (im, jm, n+1))
+    allocate (ozone_dF0_down (im, jm, n+1))
+    allocate (abs_uv_LH      (im, jm, n+1))
+    allocate (abs_vis_LH     (im, jm, n+1))
+    allocate (abs_uv_LH_FS   (im, jm, n+1))
+    allocate (abs_vis_LH_FS   (im, jm, n+1))
+  endif
+  
        
 case(B_BYRNE)
   allocate (lw_del_tau       (ie-is+1, je-js+1))
@@ -473,6 +483,7 @@ else
   ! Default: Averaged Earth insolation at all longitudes
   p2          = (1. - 3.*sin(lat)**2)/4.
   insolation  = 0.25 * solar_constant * (1.0 + del_sol * p2 + del_sw * sin(lat))
+  coszen = cos(lat) ! Approximate coszen by cos(lat) in this case for LH74 SW
 end if
 
 select case(sw_scheme)
