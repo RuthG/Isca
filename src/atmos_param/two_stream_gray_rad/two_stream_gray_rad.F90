@@ -106,8 +106,12 @@ real    :: carbon_conc     = 360.0
 real    :: ozone_in_SW     = .false.
 real    :: two_stream_SW   = .false.
 logical :: do_read_ozone=.false. ! ozone must be read in if used
+type(interpolate_type),save :: o3_interp  ! use external file for o3
 character(len=256) :: ozone_file='ozone' ! name of ozone file 
+character(len=256) :: ozone_variable_name='ozone' ! name of ozone variable in file 
 logical :: input_o3_file_is_mmr=.true. ! Does the ozone input file contain values as a mass mixing ratio (set to true) or a volume mixing ratio (set to false)?
+
+
 
 ! constants for SCHNEIDER_LIU radiation version
 real    :: single_albedo      = 0.8
