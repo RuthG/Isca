@@ -159,7 +159,7 @@ namelist/two_stream_gray_rad_nml/ solar_constant, del_sol, &
            do_read_co2, co2_file, co2_variable_name, solday, equinox_day, bog_a, bog_b, bog_mu, &
            use_time_average_coszen, dt_rad_avg,&
            diabatic_acce, ozone_in_SW, two_stream_SW,  
-		   do_read_ozone, ozone_file, input_o3_file_is_mmr
+		   do_read_ozone, ozone_file, ozone_variable_name, input_o3_file_is_mmr
 
 !==================================================================================
 !-------------------- diagnostics fields -------------------------------
@@ -219,6 +219,12 @@ if(dt_rad_avg .le. 0) dt_rad_avg = dt_real !s if dt_rad_avg is set to a value in
 
 if(do_read_co2)then
    call interpolator_init (co2_interp, trim(co2_file)//'.nc', lonb, latb, data_out_of_bounds=(/ZERO/))
+endif
+
+if(do_read_ozone)then !allocate variables needed for ozone
+   allocate (o3 (ie-is+1, je-js+1, num_levels))
+   o3 = 0.
+   call interpolator_init (o3_interp, trim(o3_file)//'.nc', lonb, latb, data_out_of_bounds=(/ZERO/))
 endif
 
 
@@ -297,7 +303,8 @@ case(B_GEEN)
   allocate (sw_wv            (ie-is+1, je-js+1))
   allocate (del_sol_tau      (ie-is+1, je-js+1))
   allocate (sw_tau_k         (ie-is+1, je-js+1))
-
+  
+       
 case(B_BYRNE)
   allocate (lw_del_tau       (ie-is+1, je-js+1))
 
