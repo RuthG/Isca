@@ -110,10 +110,15 @@ type(interpolate_type),save :: o3_interp  ! use external file for o3
 character(len=256) :: ozone_file='ozone' ! name of ozone file 
 character(len=256) :: ozone_variable_name='ozone' ! name of ozone variable in file 
 logical :: input_o3_file_is_mmr=.true. ! Does the ozone input file contain values as a mass mixing ratio (set to true) or a volume mixing ratio (set to false)?
+!downward o3 variables
 real, allocatable, dimension(:,:,:) :: ozone_column, ozone_mag, ozone_dF0_down, o3
 real, allocatable, dimension(:,:,:) :: abs_uv_LH, abs_uv_LH_FS
 real, allocatable, dimension(:,:,:) :: abs_vis_LH, abs_vis_LH_FS
-
+!upward o3 variables
+real, allocatable, dimension(:,:,:) :: ozone_mag_up, ozone_dF0_up
+real, allocatable, dimension(:,:)   :: r_bar
+real, allocatable, dimension(:,:,:) :: abs_uv_LH_up, abs_uv_LH_FS_up
+real, allocatable, dimension(:,:,:) :: abs_vis_LH_up, abs_vis_LH_FS_up
 
 ! constants for SCHNEIDER_LIU radiation version
 real    :: single_albedo      = 0.8
@@ -314,8 +319,17 @@ case(B_GEEN)
     allocate (abs_vis_LH     (ie-is+1, je-js+1, num_levels+1))
     allocate (abs_uv_LH_FS   (ie-is+1, je-js+1, num_levels+1))
     allocate (abs_vis_LH_FS   (ie-is+1, je-js+1, num_levels+1))
+	if (two_stream_SW) then
+	    allocate (ozone_mag_up    (ie-is+1, je-js+1, num_levels+1))
+	    allocate (ozone_dF0_up    (ie-is+1, je-js+1, num_levels+1))
+	    allocate (abs_uv_LH_up    (ie-is+1, je-js+1, num_levels+1))
+	    allocate (abs_vis_LH_up   (ie-is+1, je-js+1, num_levels+1))
+	    allocate (abs_uv_LH_FS_up (ie-is+1, je-js+1, num_levels+1))
+	    allocate (abs_vis_LH_FS_up (ie-is+1, je-js+1, num_levels+1))
+	    allocate (r_bar           (ie-is+1, je-js+1))
+	endif
   endif
-  
+    
        
 case(B_BYRNE)
   allocate (lw_del_tau       (ie-is+1, je-js+1))
@@ -801,10 +815,114 @@ case default
 
 end select
 
-! compute upward shortwave flux (here taken to be constant)
-do k = 1, n+1
-   sw_up(:,:,k)   = albedo(:,:) * sw_down(:,:,n+1)
-end do
+
+
+select case(sw_scheme)
+case(B_FRIERSON, B_BYRNE, B_SCHNEIDER_LIU)
+  ! compute upward shortwave flux (here taken to be constant)
+  do k = 1, n+1
+     sw_up(:,:,k)   = albedo(:,:) * sw_down(:,:,n+1)
+  end do
+
+case(B_GEEN)
+! Do upward SW absorption by ozone if selected
+  do k = 1, n+1
+     sw_up(:,:,k)   = albedo(:,:) * sw_down(:,:,n+1)
+  end do
+  
+if ( two_stream_SW .and. ozone_in_SW) then
+	
+	! insolation at TOA
+	if (do_seasonal) then
+	  ! Seasonal Cycle: Use astronomical parameters to calculate insolation
+	  call get_time(Time_diag, seconds, days)
+	  call get_time(length_of_year(), year_in_s)
+	  r_seconds = real(seconds)
+	  day_in_s = length_of_day()
+	  frac_of_day = r_seconds / day_in_s
+
+	  if(solday .ge. 0) then
+	      r_solday=real(solday)
+	      frac_of_year = (r_solday*day_in_s) / year_in_s
+	  else
+	      r_days=real(days)
+	      r_total_seconds=r_seconds+(r_days*day_in_s)
+	      frac_of_year = r_total_seconds / year_in_s
+	  endif
+
+	  gmt = abs(mod(frac_of_day, 1.0)) * 2.0 * pi
+
+	  time_since_ae = modulo(frac_of_year-equinox_day, 1.0) * 2.0 * pi
+
+	  if(use_time_average_coszen) then
+
+	     r_dt_rad_avg=real(dt_rad_avg)
+	     dt_rad_radians = (r_dt_rad_avg/day_in_s)*2.0*pi
+
+	     call diurnal_solar(lat, lon, gmt, time_since_ae, coszen, fracsun, rrsun, dt_rad_radians)
+	  else
+	     call diurnal_solar(lat, lon, gmt, time_since_ae, coszen, fracsun, rrsun)
+	  end if
+
+	     insolation = solar_constant * coszen
+
+	else if (sw_scheme==B_SCHNEIDER_LIU) then
+	  insolation = (solar_constant/pi)*cos(lat)
+	else
+	  ! Default: Averaged Earth insolation at all longitudes
+	  p2          = (1. - 3.*sin(lat)**2)/4.
+	  insolation  = 0.25 * solar_constant * (1.0 + del_sol * p2 + del_sw * sin(lat))
+	  coszen = cos(lat) ! Approximate coszen by cos(lat) in this case for LH74 SW
+	end if
+	
+  ! Lacis and Hansen scheme for absorption of upward SW flux by O3:  
+    r_bar(:,:) = ( 0.291 / ( 1. + 0.816*coszen ) ) + (                          &
+                   ( 1. - ( 0.291 / ( 1. + 0.816*coszen ) ) )                   &
+                   * 0.856 * albedo(:,:) / ( 1. - 0.144*albedo(:,:) )          &
+                                                    )
+
+    do k = n+1,1,-1
+		! Apply magnification factor
+	  ozone_mag_up(:,:,k) = ozone_column(:,:,n+1) * 35. / (                      &
+                              ( 1224.*(cDecl**2.) + 1 )**0.5 )                     &
+                            + 1.9 * ( ozone_column(:,:,n+1)                        &
+                                      - ozone_column(:,:,k)                        &
+                                    )
+	! LH74 parameterisation for fraction of total solar flux absorbed:
+      abs_vis_LH_up(:,:,k) = r_bar(:,:) * (0.02118 * ozone_mag_up(:,:,k)) / (  &
+                               1. + 0.042 * ozone_mag_up(:,:,k)                &
+                                  + 0.000323 * ( ( ozone_mag_up(:,:,k) )**2. ) &
+                                                                            )
+    ! FS97 correction
+      abs_vis_LH_FS_up(:,:,k) = ( -0.002894 * ozone_mag_up(:,:,k) + 1.0663 )   &
+                              * abs_vis_LH_up(:,:,k)
+
+      abs_uv_LH_up(:,:,k) = r_bar(:,:) * (1.082 * ozone_mag_up(:,:,k)) / (     &
+                              ( 1. + 138.6 * ozone_mag_up(:,:,k) )**0.805      &
+                                                                         )     &
+                          + ( 0.0658 * ozone_mag_up(:,:,k) ) / (               &
+                              1. + ( 103.6 * ozone_mag_up(:,:,k) )**3.         &
+                                                               )
+    ! FS97 correction
+      abs_uv_LH_FS_up(:,:,k) = ( -0.01632 * ozone_mag_up(:,:,k) + 1.08964 )    &
+                             * abs_uv_LH_up(:,:,k)
+      
+    ! Total SW flux absorbed along path by reflected radiation up till and including level k.
+    ! N.B. Flux absorbed in level k = ozone_dF0_up(:,:,k) - ozone_dF0_up(:,:,k+1)
+      ozone_dF0_up(:,:,k) = insolation(:,:) * ( abs_vis_LH_FS_up(:,:,k)             &
+                                            + abs_uv_LH_FS_up(:,:,k)           &
+                                         )
+    end do
+
+    do k = n,1,-1
+    ! Subtract off ozone absorption from total SW flux:
+      sw_up(:,:,k) = sw_up(:,:,k)                                        &
+                      - ( ozone_dF0_up(:,:,k) - ozone_dF0_up(:,:,n+1) )
+    end do
+
+endif   ! two_stream_SW
+
+end select
 
 ! net fluxes (positive up)
 lw_flux  = lw_up - lw_down
@@ -885,7 +1003,9 @@ if (lw_scheme.eq.B_GEEN) then
   deallocate (b_win, lw_dtrans_win, lw_up_win, lw_down_win, lw_del_tau, lw_del_tau_win)
 endif
 if (sw_scheme.eq.B_GEEN) then
-  deallocate (sw_dtrans, sw_wv, del_sol_tau, sw_tau_k, ozone_column, ozone_mag, ozone_dF0_down, abs_uv_LH, abs_vis_LH, abs_uv_LH_FS, abs_vis_LH_FS)
+  deallocate (sw_dtrans, sw_wv, del_sol_tau, sw_tau_k)
+  deallocate (ozone_column, ozone_mag, ozone_dF0_down, abs_uv_LH, abs_vis_LH, abs_uv_LH_FS, abs_vis_LH_FS)
+  deallocate (ozone_mag_up, ozone_dF0_up, abs_uv_LH_up, abs_vis_LH_up, abs_uv_LH_FS_up, abs_vis_LH_FS_up, r_bar)
 endif
 if (lw_scheme.eq.B_BYRNE) then
   deallocate (lw_del_tau)
@@ -895,6 +1015,7 @@ if(lw_scheme.eq.B_SCHNEIDER_LIU) then
 endif
 
 if(do_read_co2)call interpolator_end(co2_interp)
+if(do_read_ozone)call interpolator_end(o3_interp)
 
 end subroutine two_stream_gray_rad_end
 
