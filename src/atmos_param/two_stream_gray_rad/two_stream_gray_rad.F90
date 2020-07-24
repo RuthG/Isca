@@ -103,8 +103,8 @@ real    :: ir_tau_wv2      = 254.0
 real    :: window          = 0.3732
 real    :: carbon_conc     = 360.0
 ! switches and constants for Lacis and Hansen (1974) ozone scheme
-real    :: ozone_in_SW     = .false.
-real    :: two_stream_SW   = .false.
+logical    :: ozone_in_SW     = .false.
+logical    :: two_stream_SW   = .false.
 logical :: do_read_ozone=.false. ! ozone must be read in if used
 type(interpolate_type),save :: o3_interp  ! use external file for o3
 character(len=256) :: ozone_file='ozone' ! name of ozone file 
@@ -306,7 +306,7 @@ case(B_GEEN)
   allocate (del_sol_tau      (ie-is+1, je-js+1))
   allocate (sw_tau_k         (ie-is+1, je-js+1))
   
-  if ( ozone_in_SW .eq. 1 ) then
+  if (ozone_in_SW) then
     allocate (ozone_column   (ie-is+1, je-js+1, num_levels+1))
     allocate (ozone_mag      (ie-is+1, je-js+1, num_levels+1))
     allocate (ozone_dF0_down (ie-is+1, je-js+1, num_levels+1))
@@ -507,7 +507,7 @@ case(B_GEEN)
      sw_down(:,:,k+1)   = sw_down(:,:,k) * sw_dtrans(:,:,k)
   end do
   
-  if ( ozone_in_SW .eq. 1 ) then
+  if (ozone_in_SW) then
   ! Lacis and Hansen (1974) absorption by ozone, with Forster and Shine (1997) correction.
   ! Computes broadband absorption, as fraction of total solar flux at TOA.
   ! However, O3 band does not significantly overlap with water vapour SW absorption,
