@@ -28,7 +28,7 @@ module two_stream_gray_rad_mod
                                     mpp_pe, close_file, error_mesg, &
                                     NOTE, FATAL,  uppercase
 
-   use constants_mod,         only: stefan, cp_air, grav, pstd_mks, pstd_mks_earth, seconds_per_sol, orbital_period
+   use constants_mod,         only: stefan, cp_air, grav, pstd_mks, pstd_mks_earth, seconds_per_sol, orbital_period, wtmozone, gas_constant, rdgas
 
    use    diag_manager_mod,   only: register_diag_field, send_data
 
@@ -110,7 +110,7 @@ type(interpolate_type),save :: o3_interp  ! use external file for o3
 character(len=256) :: ozone_file='ozone' ! name of ozone file 
 character(len=256) :: ozone_variable_name='ozone' ! name of ozone variable in file 
 logical :: input_o3_file_is_mmr=.true. ! Does the ozone input file contain values as a mass mixing ratio (set to true) or a volume mixing ratio (set to false)?
-real, allocatable, dimension(:,:,:) :: ozone_column, ozone_mag, ozone_dF0_down
+real, allocatable, dimension(:,:,:) :: ozone_column, ozone_mag, ozone_dF0_down, o3
 real, allocatable, dimension(:,:,:) :: abs_uv_LH, abs_uv_LH_FS
 real, allocatable, dimension(:,:,:) :: abs_vis_LH, abs_vis_LH_FS
 
@@ -160,7 +160,7 @@ namelist/two_stream_gray_rad_nml/ solar_constant, del_sol, &
 		   window, carbon_conc, rad_scheme, &
            do_read_co2, co2_file, co2_variable_name, solday, equinox_day, bog_a, bog_b, bog_mu, &
            use_time_average_coszen, dt_rad_avg,&
-           diabatic_acce, ozone_in_SW, two_stream_SW,  
+           diabatic_acce, ozone_in_SW, two_stream_SW,&
 		   do_read_ozone, ozone_file, ozone_variable_name, input_o3_file_is_mmr
 
 !==================================================================================
@@ -223,10 +223,10 @@ if(do_read_co2)then
    call interpolator_init (co2_interp, trim(co2_file)//'.nc', lonb, latb, data_out_of_bounds=(/ZERO/))
 endif
 
+allocate (o3 (ie-is+1, je-js+1, num_levels))
+o3 = 0.
 if(do_read_ozone)then !allocate variables needed for ozone
-   allocate (o3 (ie-is+1, je-js+1, num_levels))
-   o3 = 0.
-   call interpolator_init (o3_interp, trim(o3_file)//'.nc', lonb, latb, data_out_of_bounds=(/ZERO/))
+   call interpolator_init (o3_interp, trim(ozone_file)//'.nc', lonb, latb, data_out_of_bounds=(/ZERO/))
 endif
 
 
@@ -307,13 +307,13 @@ case(B_GEEN)
   allocate (sw_tau_k         (ie-is+1, je-js+1))
   
   if ( ozone_in_SW .eq. 1 ) then
-    allocate (ozone_column   (im, jm, n+1))
-    allocate (ozone_mag      (im, jm, n+1))
-    allocate (ozone_dF0_down (im, jm, n+1))
-    allocate (abs_uv_LH      (im, jm, n+1))
-    allocate (abs_vis_LH     (im, jm, n+1))
-    allocate (abs_uv_LH_FS   (im, jm, n+1))
-    allocate (abs_vis_LH_FS   (im, jm, n+1))
+    allocate (ozone_column   (ie-is+1, je-js+1, num_levels+1))
+    allocate (ozone_mag      (ie-is+1, je-js+1, num_levels+1))
+    allocate (ozone_dF0_down (ie-is+1, je-js+1, num_levels+1))
+    allocate (abs_uv_LH      (ie-is+1, je-js+1, num_levels+1))
+    allocate (abs_vis_LH     (ie-is+1, je-js+1, num_levels+1))
+    allocate (abs_uv_LH_FS   (ie-is+1, je-js+1, num_levels+1))
+    allocate (abs_vis_LH_FS   (ie-is+1, je-js+1, num_levels+1))
   endif
   
        
@@ -536,7 +536,7 @@ case(B_GEEN)
   ! Parameterization for fraction of total flux absorbed from LH74:
     do k = 1, n+1
    	 ! Apply magnification factor to ozone profile:
-   	 ozone_mag(:,:,k) = ozone_column(:,:,k) * 35.  
+   	 ozone_mag(:,:,k) = ozone_column(:,:,k) * 35.                                &
    	                   / ( ( 1224.*(coszen**2) + 1. )**0.5 )
   
       abs_vis_LH(:,:,k) = ( 0.02118 * ozone_mag(:,:,k) ) / (                     &
